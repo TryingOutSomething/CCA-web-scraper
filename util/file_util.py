@@ -94,4 +94,5 @@ def dump_records(records, download_directory):
     file_path = path.join(download_directory, _file_name)
 
     with open(file_path, 'w') as f:
-        dump(records, f)
+        for record in records:
+            dump(record, f)
