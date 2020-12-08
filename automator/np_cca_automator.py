@@ -1,13 +1,12 @@
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import ActionChains
-from selenium.webdriver.support.expected_conditions import invisibility_of_element_located
 from selenium.webdriver.support.ui import WebDriverWait
 
 from automator import Automator
 from driver import initialize_web_driver_repository
-from util.file_util import get_user_defined_driver_info, setup_download_directory
+from util.file_util import get_user_defined_driver_info, setup_download_directory, dump_records
 
-_CLASS_NAMES = ['ac', 'sp', 'cs', 'si']
+_ID_NAMES = ['ac', 'sp', 'cs', 'si']
 
 
 def _validate_and_get_driver_information():
@@ -15,6 +14,29 @@ def _validate_and_get_driver_information():
     setup_download_directory(driver_info)
 
     return driver_info
+
+
+def _get_cca_title(modal_element):
+    try:
+        cca_title_element = modal_element.find_element_by_class_name('club-title')
+        return cca_title_element.get_attribute('innerText')
+    except NoSuchElementException:
+        return ''
+
+
+def _get_cca_image_info(modal_element):
+    try:
+        cca_image = modal_element.find_element_by_class_name('img-responsive')
+        return cca_image.get_attribute('src')
+    except NoSuchElementException:
+        return
+
+
+def _get_email_from_cca_description(description):
+    try:
+        return description[1].split(': ')[1].rstrip('\n')
+    except IndexError:
+        return ''
 
 
 class NpCcaAutomator(Automator):
@@ -38,43 +60,38 @@ class NpCcaAutomator(Automator):
         self.driver.maximize_window()
         self.driver.get(url)
 
+        # If you would like to scrape all at once
         # for name in _CLASS_NAMES:
         #     self._get_cca_info_list_by_id(name)
-        self._get_cca_info_list_by_id(_CLASS_NAMES[1])
+
+        # Scrape one by one
+        self._get_cca_info_list_by_id(_ID_NAMES[0])
+        dump_records(self.cca_list, self.driver_info['download_directory'])
+        self.driver.quit()
 
     def _get_cca_info_list_by_id(self, element_id):
-        root_xpath = f'//*[@id="{element_id}"]/div'
+        root_xpath = f'//div[@id="{element_id}"]/div'
 
         div_elements = self.driver.find_elements_by_xpath(root_xpath)
 
-        child_div_xpath = f'{root_xpath}/div'
+        child_div_xpath = './div'
 
         if len(div_elements) > 1:
             child_div_elements = div_elements[1].find_elements_by_xpath(child_div_xpath)
         else:
             child_div_elements = div_elements[0].find_elements_by_xpath(child_div_xpath)
 
-        # for div in div_elements:
-        #     current_div = div.get_attribute('class')
-        #
-        #     if 'triangle' in current_div:
-        #         continue
-        #
-        #     child_div_elements = div.find_elements_by_xpath(child_div_xpath)
-
         cca_category_h3_element = child_div_elements[0].find_element_by_tag_name('h3')
         self.current_cca_category = cca_category_h3_element.get_attribute('innerText').strip()
 
-        self._get_all_cca_under_category(child_div_xpath, child_div_elements[1])
+        for child_div in child_div_elements:
+            self._get_all_cca_under_category(child_div)
 
-    def _get_all_cca_under_category(self, x_path, cca_info_elements):
-        ul_xpath = f'{x_path}/ul'
-        cca_ul_elements = cca_info_elements.find_elements_by_xpath(ul_xpath)
-
-        li_xpath = f'{ul_xpath}/li'
+    def _get_all_cca_under_category(self, cca_info_element):
+        cca_ul_elements = cca_info_element.find_elements_by_xpath('./ul')
 
         for cca_column_element in cca_ul_elements:
-            cca_li_elements = cca_column_element.find_elements_by_xpath(li_xpath)
+            cca_li_elements = cca_column_element.find_elements_by_xpath('./li')
 
             for cca_li_element in cca_li_elements:
                 cca_value_element = cca_li_element.find_element_by_class_name('open-modal')
@@ -83,53 +100,31 @@ class NpCcaAutomator(Automator):
                 modal_element = WebDriverWait(self.driver, 10) \
                     .until(lambda on_modal_open: on_modal_open.find_element_by_class_name('club-modal'))
 
-                self._wait_till_loading_is_done()
-
                 self._get_cca_info_from_modal(modal_element)
                 self._close_modal(cca_li_element)
 
     def _get_cca_info_from_modal(self, modal_element):
-        cca_title = self._get_cca_title(modal_element)
+        cca_title = _get_cca_title(modal_element)
 
-        cca_content_elements = modal_element.find_elements_by_tag_name('p')
-        image_url = self._get_cca_image_info(modal_element)
+        probable_html_tags_xpath = './p | ./h4'
+        cca_content_elements = modal_element.find_elements_by_xpath(probable_html_tags_xpath)
+        image_url = _get_cca_image_info(modal_element)
 
-        cca_bio = cca_content_elements[0].get_attribute('innerText')
-        cca_contact = cca_content_elements[1].get_attribute('innerText')
+        raw_cca_content_list = [element.get_attribute('innerText') for element in cca_content_elements if
+                                element.get_attribute('innerText') != '' and
+                                '\xa0' not in element.get_attribute('innerText')]
 
         cca_info = {
-            'name': cca_title,
+            'name': cca_title.rstrip('\n'),
             'category': self.current_cca_category,
-            'bio': cca_bio,
-            'email': cca_contact.split(': ')[1],
+            'bio': raw_cca_content_list[0].rstrip('\n'),
+            'email': _get_email_from_cca_description(raw_cca_content_list),
             'profileUrl': None,
             'coverUrl': None if not image_url else image_url
         }
 
         print(cca_info)
-        # self.cca_list.append(cca_info)
-
-    def _get_cca_title(self, modal_element):
-        try:
-            cca_title_element = modal_element.find_element_by_class_name('club-title')
-            return cca_title_element.get_attribute('innerText')
-        except NoSuchElementException as e:
-            return ''
-
-    def _get_cca_image_info(self, modal_element):
-        try:
-            cca_image = modal_element.find_element_by_class_name('img-responsive')
-            return cca_image.get_attribute('src')
-        except NoSuchElementException as e:
-            return
-
-    def _wait_till_loading_is_done(self):
-        try:
-            WebDriverWait(self.driver, 10).until(invisibility_of_element_located(
-                self.driver.find_element_by_class_name('right-modal-content')
-            ))
-        except NoSuchElementException as e:
-            return
+        self.cca_list.append(cca_info)
 
     def _close_modal(self, cca_li_element):
         self.driver_action.move_to_element(cca_li_element)

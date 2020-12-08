@@ -1,11 +1,14 @@
-from yaml import safe_load
+from json import dump
 from os import getcwd, makedirs, path
 from os.path import isfile
-from platform import system
 from pathlib import Path
+from platform import system
+
+from yaml import safe_load
 
 _default_directory_permission_mode = 777
 _download_directory_name = 'cca_info'
+_file_name = 'cca_list.json'
 _driver_directory_name = 'driver'
 _USER_CONFIG_DIRECTORY = Path(getcwd() + '/driver_config.yaml')
 
@@ -85,3 +88,10 @@ def _create_download_directory():
     makedirs(root_download_directory_path, mode=_default_directory_permission_mode, exist_ok=True)
 
     return root_download_directory_path
+
+
+def dump_records(records, download_directory):
+    file_path = path.join(download_directory, _file_name)
+
+    with open(file_path, 'w') as f:
+        dump(records, f)
