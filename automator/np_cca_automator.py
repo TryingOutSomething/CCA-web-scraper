@@ -16,6 +16,11 @@ def _validate_and_get_driver_information():
     return driver_info
 
 
+def _set_close_modal_element(driver, element_id):
+    # Could be any element in the DOM. As long as it is always visible
+    return driver.find_element_by_id(element_id)
+
+
 def _get_cca_title(modal_element):
     try:
         cca_title_element = modal_element.find_element_by_class_name('club-title')
@@ -45,7 +50,7 @@ class NpCcaAutomator(Automator):
         self.driver_action = None
         self.cca_list = []
         self.current_cca_category = ''
-        self.close_modal_util = None
+        self.close_modal_element = None
         self.driver_info = _validate_and_get_driver_information()
         self.available_web_drivers = initialize_web_driver_repository()
 
@@ -60,16 +65,21 @@ class NpCcaAutomator(Automator):
         self.driver.maximize_window()
         self.driver.get(url)
 
+        self.close_modal_element = _set_close_modal_element(self.driver, _ID_NAMES[0])
+
         # If you would like to scrape all at once
-        # for name in _CLASS_NAMES:
-        #     self._get_cca_info_list_by_id(name)
+        for name in _ID_NAMES:
+            self._scrape_cca_info(name)
 
         # Scrape one by one
-        self._get_cca_info_list_by_id(_ID_NAMES[0])
+        # self._get_cca_info_list_by_id(_ID_NAMES[0])
+
+        print('Dumping records...')
         dump_records(self.cca_list, self.driver_info['download_directory'])
+
         self.driver.quit()
 
-    def _get_cca_info_list_by_id(self, element_id):
+    def _scrape_cca_info(self, element_id):
         root_xpath = f'//div[@id="{element_id}"]/div'
 
         div_elements = self.driver.find_elements_by_xpath(root_xpath)
@@ -101,7 +111,7 @@ class NpCcaAutomator(Automator):
                     .until(lambda on_modal_open: on_modal_open.find_element_by_class_name('club-modal'))
 
                 self._get_cca_info_from_modal(modal_element)
-                self._close_modal(cca_li_element)
+                self._close_modal()
 
     def _get_cca_info_from_modal(self, modal_element):
         cca_title = _get_cca_title(modal_element)
@@ -126,8 +136,9 @@ class NpCcaAutomator(Automator):
         print(cca_info)
         self.cca_list.append(cca_info)
 
-    def _close_modal(self, cca_li_element):
-        self.driver_action.move_to_element(cca_li_element)
+    def _close_modal(self):
+        # The close button is not clickable with selenium as the click listener is using jQuery
+        # The other method to close the modal is to click outside the modal region
+        self.driver_action.move_to_element(self.close_modal_element)
         self.driver_action.perform()
-        self.driver_action.click()
-        self.driver_action.perform()
+        self.driver_action.click().perform()
