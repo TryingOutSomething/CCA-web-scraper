@@ -51,7 +51,7 @@ python main.py
 ```
 
 By default, the web scraper will launch a browser when the script is executed. Add the `--browser-option` or `-bo` flag
-with the value `headless` to the end of the command:
+with the value `headless` to the end of the command to hide the browser instead:
 
 ```
 python main.py --browser_options="headless"
