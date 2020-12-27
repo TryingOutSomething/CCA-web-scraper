@@ -42,7 +42,7 @@ Opera
 Safari
 ```
 
-### Run the web scraper
+## Run the web scraper
 
 Run the following command to start the web scraper:
 
