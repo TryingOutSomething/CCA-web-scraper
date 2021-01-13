@@ -65,9 +65,9 @@ def _has_missing_config_file_information(driver_info):
     return False
 
 
-def setup_download_directory(driver_config):
+def setup_download_directory(driver_config, school_name):
     driver_config['path'] = _check_if_driver_exists(driver_config['name'])
-    driver_config['download_directory'] = _create_download_directory()
+    driver_config['download_directory'] = _create_download_directory(school_name)
 
 
 def _check_if_driver_exists(driver_file_name):
@@ -82,8 +82,8 @@ def _check_if_driver_exists(driver_file_name):
     return driver_path
 
 
-def _create_download_directory():
-    root_download_directory_path = path.join(getcwd(), _download_directory_name)
+def _create_download_directory(school_name):
+    root_download_directory_path = path.join(getcwd(), _download_directory_name, school_name)
 
     makedirs(root_download_directory_path, mode=_default_directory_permission_mode, exist_ok=True)
 
