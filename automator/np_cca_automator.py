@@ -11,7 +11,7 @@ _ID_NAMES = ['ac', 'sp', 'cs', 'si']
 
 def _validate_and_get_driver_information():
     driver_info = get_user_defined_driver_info()
-    setup_download_directory(driver_info)
+    setup_download_directory(driver_info, 'np')
 
     return driver_info
 
@@ -75,7 +75,7 @@ class NpCcaAutomator(Automator):
             self._scrape_cca_info(name)
 
         # Scrape one by one
-        # self._get_cca_info_list_by_id(_ID_NAMES[0])
+        # self._scrape_cca_info(_ID_NAMES[0])
 
         print('Dumping records...')
         dump_records(self.cca_list, self.driver_info['download_directory'])
